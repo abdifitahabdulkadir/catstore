@@ -78,7 +78,7 @@ function buildProducts(): Product[] {
         category: category.slug,
         price,
         rating,
-        image: "/product-placeholder.svg",
+        image: "/logo.png",
       });
     }
   }
