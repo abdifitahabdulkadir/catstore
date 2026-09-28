@@ -14,7 +14,9 @@
   "start:dev": "nest start --watch",
   "start:debug": "nest start --debug --watch",
   "start:prod": "node dist/main",
-  "lint": "oxlint --type-aware src/"
+  "lint": "oxlint --type-aware src/",
+  "generate:products": "node scripts/generate-products.mjs",
+  "verify:products": "node scripts/verify-products.mjs"
  },
  "dependencies": {
   "@nestjs/common": "^12.0.1",

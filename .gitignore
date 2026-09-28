@@ -23,3 +23,6 @@ pnpm-debug.log*
 .DS_Store
 .vscode/
 .idea/
+
+# generated data (regenerate with `pnpm --filter api generate:products`)
+apps/api/src/data/*.ndjson
