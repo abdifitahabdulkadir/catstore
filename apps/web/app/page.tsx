@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, ShoppingBag } from "lucide-react";
+import Image from "next/image";
+import { Search } from "lucide-react";
 import { useDebouncedValue } from "@tanstack/react-pacer";
 
 import { Button } from "@/components/ui/button";
@@ -54,7 +55,7 @@ export default function Home() {
       <header className="flex flex-col items-center gap-6 text-center">
         <div className="space-y-2">
           <h1 className="flex items-center justify-center gap-2 text-4xl font-bold tracking-tight sm:text-5xl">
-            <ShoppingBag className="size-8 sm:size-9" />
+            <Image src="/logo.png" alt="Catstore logo" width={36} height={36} className="size-8 rounded-md sm:size-9" />
             Catstore
           </h1>
           <p className="text-lg text-muted-foreground">Everything you need, all in one place.</p>
