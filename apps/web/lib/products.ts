@@ -89,3 +89,11 @@ function buildProducts(): Product[] {
 export const PRODUCTS: Product[] = buildProducts();
 
 export const PAGE_SIZE = 25;
+
+export function getProductById(id: number): Product | undefined {
+  return PRODUCTS.find((product) => product.id === id);
+}
+
+export function getCategoryName(slug: string): string {
+  return CATEGORIES.find((category) => category.slug === slug)?.name ?? slug;
+}
