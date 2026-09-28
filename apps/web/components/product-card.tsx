@@ -42,14 +42,14 @@ export function ProductCard({ product }: { product: Product }) {
         />
       </div>
       <CardHeader>
-        <CardTitle>{product.name}</CardTitle>
-        <CardDescription className="line-clamp-2">{product.description}</CardDescription>
+        <CardTitle className="text-lg">{product.name}</CardTitle>
+        <CardDescription className="line-clamp-2 text-base">{product.description}</CardDescription>
       </CardHeader>
       <CardContent>
         <RatingStars rating={product.rating} />
       </CardContent>
       <CardFooter className="justify-between">
-        <span className="text-base font-semibold">${product.price.toFixed(2)}</span>
+        <span className="text-lg font-semibold">${product.price.toFixed(2)}</span>
       </CardFooter>
     </Card>
   );

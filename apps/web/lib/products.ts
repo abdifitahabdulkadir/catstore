@@ -88,4 +88,4 @@ function buildProducts(): Product[] {
 
 export const PRODUCTS: Product[] = buildProducts();
 
-export const PAGE_SIZE = 30;
+export const PAGE_SIZE = 25;

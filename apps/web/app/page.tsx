@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Search, ShoppingBag } from "lucide-react";
+import { useDebouncedValue } from "@tanstack/react-pacer";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,17 +19,18 @@ import { CATEGORIES, PAGE_SIZE, PRODUCTS } from "@/lib/products";
 
 export default function Home() {
   const [search, setSearch] = useState("");
+  const [debouncedSearch] = useDebouncedValue(search, { wait: 500 });
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [page, setPage] = useState(1);
 
   const filteredProducts = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = debouncedSearch.trim().toLowerCase();
     return PRODUCTS.filter((product) => {
       const matchesCategory = activeCategory === "all" || product.category === activeCategory;
       const matchesQuery = query.length === 0 || product.name.toLowerCase().includes(query);
       return matchesCategory && matchesQuery;
     });
-  }, [search, activeCategory]);
+  }, [debouncedSearch, activeCategory]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -51,8 +53,11 @@ export default function Home() {
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-10 sm:px-6">
       <header className="flex flex-col items-center gap-6 text-center">
         <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Catstore</h1>
-          <p className="text-muted-foreground">Everything you need, all in one place.</p>
+          <h1 className="flex items-center justify-center gap-2 text-4xl font-bold tracking-tight sm:text-5xl">
+            <ShoppingBag className="size-8 sm:size-9" />
+            Catstore
+          </h1>
+          <p className="text-lg text-muted-foreground">Everything you need, all in one place.</p>
         </div>
         <div className="relative w-full max-w-xl">
           <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" />
@@ -60,7 +65,7 @@ export default function Home() {
             value={search}
             onChange={(event) => handleSearchChange(event.target.value)}
             placeholder="Search products..."
-            className="h-12 pl-11 text-base"
+            className="h-14 pl-11 text-lg"
           />
         </div>
       </header>
@@ -68,7 +73,6 @@ export default function Home() {
       <div className="flex flex-wrap justify-center gap-2">
         <Button
           variant={activeCategory === "all" ? "default" : "outline"}
-          size="sm"
           onClick={() => handleCategoryChange("all")}
         >
           All
@@ -77,7 +81,6 @@ export default function Home() {
           <Button
             key={category.slug}
             variant={activeCategory === category.slug ? "default" : "outline"}
-            size="sm"
             onClick={() => handleCategoryChange(category.slug)}
           >
             {category.name}
@@ -85,7 +88,7 @@ export default function Home() {
         ))}
       </div>
 
-      <p className="text-center text-sm text-muted-foreground">
+      <p className="text-center text-base text-muted-foreground">
         {filteredProducts.length} product{filteredProducts.length === 1 ? "" : "s"} found
       </p>
 
