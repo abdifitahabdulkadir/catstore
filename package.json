@@ -1,17 +1,18 @@
 {
-  "name": "catstore",
-  "private": true,
-  "scripts": {
-    "dev": "turbo run dev",
-    "build": "turbo run build",
-    "lint": "turbo run lint",
-    "start": "turbo run start"
-  },
-  "devDependencies": {
-    "turbo": "^2.5.8"
-  },
-  "packageManager": "pnpm@10.33.0",
-  "engines": {
-    "node": ">=20"
-  }
+ "name": "catstore",
+ "private": true,
+ "scripts": {
+  "web": "turbo run dev --filter=web",
+  "api": "turbo run dev --filter=api",
+  "build": "turbo run build",
+  "lint": "turbo run lint",
+  "start": "turbo run start"
+ },
+ "devDependencies": {
+  "turbo": "^2.5.8"
+ },
+ "packageManager": "pnpm@10.33.0",
+ "engines": {
+  "node": ">=20"
+ }
 }
