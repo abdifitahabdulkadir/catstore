@@ -1,0 +1,32 @@
+{
+ "$schema": "https://turborepo.com/schema.json",
+ "ui": "stream-with-experimental-timestamps",
+ "tasks": {
+  "dev": {
+   "cache": false,
+   "persistent": true
+  },
+  "build": {
+   "dependsOn": [
+    "^build"
+   ],
+   "outputs": [
+    ".next/**",
+    "!.next/cache/**",
+    "dist/**"
+   ]
+  },
+  "lint": {
+   "dependsOn": [
+    "^lint"
+   ]
+  },
+  "start": {
+   "dependsOn": [
+    "build"
+   ],
+   "cache": false,
+   "persistent": true
+  }
+ }
+}
