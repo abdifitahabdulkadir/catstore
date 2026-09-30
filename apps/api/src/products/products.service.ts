@@ -1,11 +1,11 @@
 import { Client } from '@elastic/elasticsearch';
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { config } from '../config.js';
 import { ELASTIC_CLIENT } from '../elasticsearch/elasticsearch.module.js';
 
-export const PAGE_SIZE = 25;
-const INDEX = process.env.ELASTICSEARCH_INDEX ?? 'products';
-// Elasticsearch's default index.max_result_window is 10,000 results (from + size).
-const MAX_SEARCH_PAGES = 10_000 / PAGE_SIZE;
+const { pageSize: PAGE_SIZE, maxResultWindow } = config;
+const INDEX = config.elasticsearch.index;
+const MAX_SEARCH_PAGES = Math.floor(maxResultWindow / PAGE_SIZE);
 
 export type Product = {
   id: number;
@@ -38,7 +38,7 @@ export class ProductsService {
     return { bool: { must, filter } };
   }
 
-  async count(q?: string, category?: string): Promise<number> {
+  private async count(q?: string, category?: string): Promise<number> {
     const { count } = await this.es.count({ index: INDEX, query: this.query(q, category) });
     return count;
   }
@@ -48,7 +48,7 @@ export class ProductsService {
   //  - no filters:      range on the contiguous `id`
   //  - category only:   range on `categoryRank` (position within the category)
   //  - text search:     relevance from/size, limited to the result window
-  async findHits(page: number, q?: string, category?: string): Promise<Product[]> {
+  private async findHits(page: number, q?: string, category?: string): Promise<Product[]> {
     const query = this.query(q, category);
     const start = (page - 1) * PAGE_SIZE;
     let from = 0;
@@ -77,7 +77,7 @@ export class ProductsService {
   }
 
   // Text searches are ranked by relevance, so pages past the result window are cut off.
-  totalPages(total: number, q?: string): number {
+  private totalPages(total: number, q?: string): number {
     const pages = Math.ceil(total / PAGE_SIZE);
     return q ? Math.min(pages, MAX_SEARCH_PAGES) : pages;
   }

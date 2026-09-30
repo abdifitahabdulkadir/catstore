@@ -1,15 +1,15 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { config } from './config.js';
 import { ElasticsearchModule } from './elasticsearch/elasticsearch.module.js';
 import { ProductsController } from './products/products.controller.js';
 import { ProductsService } from './products/products.service.js';
 
 @Module({
   imports: [
-    // Global rate limit: 50 requests per second per client IP.
-    // 50 requests in every 1 second  for given client.
-    ThrottlerModule.forRoot([{ ttl: 1000, limit: 50 }]),
+    // Global rate limit per client IP (RATE_LIMIT requests per RATE_LIMIT_TTL_MS).
+    ThrottlerModule.forRoot([config.rateLimit]),
     ElasticsearchModule,
   ],
   controllers: [ProductsController],
