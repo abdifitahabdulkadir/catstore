@@ -27,10 +27,6 @@ export const CATEGORIES: Category[] = [
   { slug: "grocery", name: "Grocery" },
 ];
 
-export const MAX_SEARCH_LENGTH = 100;
-
-export const PLACEHOLDER_IMAGE = "/logo.png";
-
 export function getCategoryName(slug: string): string {
   return CATEGORIES.find((category) => category.slug === slug)?.name ?? slug;
 }

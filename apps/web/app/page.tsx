@@ -18,8 +18,9 @@ import {
  PaginationNext,
  PaginationPrevious,
 } from "@/components/ui/pagination";
-import { streamProducts } from "@/lib/api";
-import { CATEGORIES, MAX_SEARCH_LENGTH, type Product } from "@/lib/products";
+import { getProducts, type ProductPage } from "@/lib/api";
+import { DEFAULT_PAGE, MAX_SEARCH_LENGTH } from "@/lib/config";
+import { CATEGORIES } from "@/lib/products";
 
 // With up to 200,000 pages, show first, last and a window around the current page.
 function pageWindow(current: number, total: number): (number | "gap")[] {
@@ -52,7 +53,7 @@ function ProductBrowser() {
  const q = (searchParams.get("q") ?? "").slice(0, MAX_SEARCH_LENGTH);
  const categoryParam = searchParams.get("category");
  const activeCategory = CATEGORIES.some((c) => c.slug === categoryParam) ? categoryParam! : "all";
- const page = Math.max(1, Number.parseInt(searchParams.get("page") ?? "", 10) || 1);
+ const page = Math.max(DEFAULT_PAGE, Number.parseInt(searchParams.get("page") ?? "", 10) || DEFAULT_PAGE);
 
  const [search, setSearch] = useState(q);
  const [syncedQ, setSyncedQ] = useState(q);
@@ -64,7 +65,7 @@ function ProductBrowser() {
  }
 
  function updateUrl(changes: Record<string, string | undefined>, replace = false) {
-  const next = new URLSearchParams(window.location.search) // read live: the debounced caller may hold stale props;
+  const next = new URLSearchParams(window.location.search) // read live: the debounced caller may hold stale props
   for (const [key, value] of Object.entries(changes)) {
    if (value) next.set(key, value);
    else next.delete(key);
@@ -80,54 +81,36 @@ function ProductBrowser() {
   { wait: 500 }
  );
 
- const [products, setProducts] = useState<Product[]>([]);
- const [total, setTotal] = useState<number | null>(null);
- const [totalPages, setTotalPages] = useState(1);
+ const [result, setResult] = useState<ProductPage | null>(null);
  const [error, setError] = useState<string | null>(null);
 
- // Products are appended as each line of the NDJSON stream arrives.
  useEffect(() => {
   const controller = new AbortController();
-  streamProducts(
-   {
-    page,
-    q: q || undefined,
-    category: activeCategory === "all" ? undefined : activeCategory,
-   },
-   {
-    // The previous page stays visible until the new page's first line arrives.
-    onMeta: (meta) => {
-     setProducts([]);
-     setError(null);
-     setTotal(meta.total);
-     setTotalPages(Math.max(1, meta.totalPages));
-    },
-    onProduct: (product) => setProducts((current) => [...current, product]),
-   },
+  getProducts(
+   { page, q: q || undefined, category: activeCategory === "all" ? undefined : activeCategory },
    controller.signal
   )
+   .then((data) => {
+    setResult(data);
+    setError(null);
+   })
    .catch((err: unknown) => {
     if (controller.signal.aborted) return;
-    setProducts([]);
+    setResult(null);
     setError(err instanceof Error ? err.message : "Something went wrong");
    });
 
   return () => controller.abort();
  }, [page, q, activeCategory]);
 
- const currentPage = total === null ? page : Math.min(page, totalPages);
-
- function handleCategoryChange(slug: string) {
-  updateUrl({ category: slug === "all" ? undefined : slug, page: undefined });
- }
-
- function handleSearchChange(value: string) {
-  setSearch(value);
-  commitSearch(value);
- }
+ const products = result?.items ?? [];
+ const total = result?.total ?? null;
+ const totalPages = Math.max(1, result?.totalPages ?? 1);
+ const currentPage = Math.min(page, totalPages);
 
  function goToPage(target: number) {
-  updateUrl({ page: target > 1 ? String(target) : undefined });
+  if (target < DEFAULT_PAGE || target > totalPages) return;
+  updateUrl({ page: target > DEFAULT_PAGE ? String(target) : undefined });
  }
 
  return (
@@ -145,7 +128,10 @@ function ProductBrowser() {
      <Input
       value={search}
       maxLength={MAX_SEARCH_LENGTH}
-      onChange={(event) => handleSearchChange(event.target.value)}
+      onChange={(event) => {
+       setSearch(event.target.value);
+       commitSearch(event.target.value);
+      }}
       placeholder="Search products..."
       className="h-14 pl-11 text-lg"
      />
@@ -155,7 +141,7 @@ function ProductBrowser() {
    <div className="flex flex-wrap justify-center gap-2">
     <Button
      variant={activeCategory === "all" ? "default" : "outline"}
-     onClick={() => handleCategoryChange("all")}
+     onClick={() => updateUrl({ category: undefined, page: undefined })}
     >
      All
     </Button>
@@ -163,7 +149,7 @@ function ProductBrowser() {
      <Button
       key={category.slug}
       variant={activeCategory === category.slug ? "default" : "outline"}
-      onClick={() => handleCategoryChange(category.slug)}
+      onClick={() => updateUrl({ category: category.slug, page: undefined })}
      >
       {category.name}
      </Button>
@@ -186,13 +172,12 @@ function ProductBrowser() {
       <PaginationItem>
        <PaginationPrevious
         href="#"
-        aria-disabled={currentPage <= 1}
-        tabIndex={currentPage <= 1 ? -1 : undefined}
-        className={currentPage <= 1 ? "pointer-events-none opacity-50" : undefined}
+        aria-disabled={currentPage <= DEFAULT_PAGE}
+        tabIndex={currentPage <= DEFAULT_PAGE ? -1 : undefined}
+        className={currentPage <= DEFAULT_PAGE ? "pointer-events-none opacity-50" : undefined}
         onClick={(event) => {
          event.preventDefault();
-         if (currentPage <= 1) return;
-         goToPage(Math.max(1, currentPage - 1));
+         goToPage(currentPage - 1);
         }}
        />
       </PaginationItem>
@@ -226,8 +211,7 @@ function ProductBrowser() {
         className={currentPage >= totalPages ? "pointer-events-none opacity-50" : undefined}
         onClick={(event) => {
          event.preventDefault();
-         if (currentPage >= totalPages) return;
-         goToPage(Math.min(totalPages, currentPage + 1));
+         goToPage(currentPage + 1);
         }}
        />
       </PaginationItem>

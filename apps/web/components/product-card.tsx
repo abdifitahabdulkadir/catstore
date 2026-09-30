@@ -10,7 +10,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { RatingStars } from "@/components/rating-stars";
-import { PLACEHOLDER_IMAGE, type Product } from "@/lib/products";
+import { PLACEHOLDER_IMAGE } from "@/lib/config";
+import type { Product } from "@/lib/products";
 
 export function ProductCard({ product }: { product: Product }) {
   return (

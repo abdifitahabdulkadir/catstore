@@ -5,8 +5,9 @@ import { ArrowLeft } from "lucide-react";
 
 import { RatingStars } from "@/components/rating-stars";
 import { buttonVariants } from "@/components/ui/button";
-import { fetchProduct } from "@/lib/api";
-import { getCategoryName, PLACEHOLDER_IMAGE } from "@/lib/products";
+import { getProductDetail } from "@/lib/api";
+import { PLACEHOLDER_IMAGE } from "@/lib/config";
+import { getCategoryName } from "@/lib/products";
 
 export default async function ProductPage({
   params,
@@ -14,7 +15,7 @@ export default async function ProductPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const product = Number.isInteger(Number(id)) ? await fetchProduct(Number(id)) : null;
+  const product = Number.isInteger(Number(id)) ? await getProductDetail(Number(id)) : null;
 
   if (!product) {
     notFound();
