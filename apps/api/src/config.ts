@@ -1,19 +1,19 @@
 import { z } from 'zod';
 
-const convertoNumber = (fallback: number) => z.coerce.number().int().positive().default(fallback);
+const toNumber = (fallback: number) => z.coerce.number().int().positive().default(fallback);
 
 const env = z
   .object({
-    PORT: convertoNumber(3000),
+    PORT: toNumber(3000),
     WEB_ORIGIN: z.url().default('http://localhost:301'),
-    DEFAULT_PAGE: convertoNumber(1),
-    PAGE_SIZE: convertoNumber(25),
-    MAX_PAGE_SIZE: convertoNumber(100),
-    MAX_SEARCH_LENGTH: convertoNumber(100),
+    DEFAULT_PAGE: toNumber(1),
+    PAGE_SIZE: toNumber(25),
+    MAX_PAGE_SIZE: toNumber(100),
+    MAX_SEARCH_LENGTH: toNumber(100),
     // Elasticsearch's default index.max_result_window is 10,000 results (from + size).
-    MAX_RESULT_WINDOW: convertoNumber(10_000),
-    RATE_LIMIT_TTL_MS: convertoNumber(1000),
-    RATE_LIMIT: convertoNumber(50),
+    MAX_RESULT_WINDOW: toNumber(10_000),
+    RATE_LIMIT_TTL_MS: toNumber(1000),
+    RATE_LIMIT: toNumber(50),
     ELASTICSEARCH_URL: z.url().default('http://localhost:9200'),
     ELASTICSEARCH_USERNAME: z.string().min(1).default('elastic'),
     ELASTICSEARCH_PASSWORD: z.string().min(1).default('admin'),
