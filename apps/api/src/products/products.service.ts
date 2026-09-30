@@ -17,8 +17,10 @@ export type Product = {
   image: string | null;
 };
 
+export type ProductHit = Product & { score?: number };
+
 export type ProductPage = {
-  items: Product[];
+  items: ProductHit[];
   page: number;
   pageSize: number;
   total: number;
@@ -47,7 +49,7 @@ export class ProductsService {
   //  - no filters:      range on the contiguous `id`
   //  - category only:   range on `categoryRank` (position within the category)
   //  - text search:     relevance from/size, limited to the result window
-  private async findHits(page: number, limit: number, q?: string, category?: string): Promise<Product[]> {
+  private async findHits(page: number, limit: number, q?: string, category?: string): Promise<ProductHit[]> {
     const query = this.query(q, category);
     const start = (page - 1) * limit;
     let from = 0;
@@ -73,7 +75,8 @@ export class ProductsService {
       query,
       sort: sortField ? [{ [sortField]: 'asc' }] : ['_score', { id: 'asc' }],
     });
-    return res.hits.hits.map((h) => h._source as Product);
+    // Relevance is only meaningful for text searches; other pages are sorted by a field.
+    return res.hits.hits.map((h) => (q ? { ...(h._source as Product), score: h._score ?? undefined } : (h._source as Product)));
   }
 
   private totalPages(total: number, limit: number, q?: string): number {
