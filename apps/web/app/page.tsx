@@ -186,8 +186,12 @@ function ProductBrowser() {
             <PaginationItem>
               <PaginationPrevious
                 href="#"
+                aria-disabled={currentPage <= 1}
+                tabIndex={currentPage <= 1 ? -1 : undefined}
+                className={currentPage <= 1 ? "pointer-events-none opacity-50" : undefined}
                 onClick={(event) => {
                   event.preventDefault();
+                  if (currentPage <= 1) return;
                   goToPage(Math.max(1, currentPage - 1));
                 }}
               />
@@ -217,8 +221,12 @@ function ProductBrowser() {
             <PaginationItem>
               <PaginationNext
                 href="#"
+                aria-disabled={currentPage >= totalPages}
+                tabIndex={currentPage >= totalPages ? -1 : undefined}
+                className={currentPage >= totalPages ? "pointer-events-none opacity-50" : undefined}
                 onClick={(event) => {
                   event.preventDefault();
+                  if (currentPage >= totalPages) return;
                   goToPage(Math.min(totalPages, currentPage + 1));
                 }}
               />
