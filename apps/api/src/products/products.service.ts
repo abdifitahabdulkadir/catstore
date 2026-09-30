@@ -17,7 +17,13 @@ export type Product = {
   image: string | null;
 };
 
-export type ProductHit = Product & { score?: number };
+export type ProductHit = Product & {
+  score?: number;
+  // Position in the relevance-ordered results (1 = best match).
+  rank?: number;
+  // The words that Elasticsearch actually matched, per searched field.
+  matched?: { name: string[]; description: string[] };
+};
 
 export type ProductPage = {
   items: ProductHit[];
@@ -25,7 +31,13 @@ export type ProductPage = {
   pageSize: number;
   total: number;
   totalPages: number;
+  tookMs: number;
 };
+
+// Unique lowercase words wrapped in <em> by the highlighter.
+const highlighted = (fragments: string[] = []): string[] => [
+  ...new Set(fragments.flatMap((f) => [...f.matchAll(/<em>(.*?)<\/em>/g)].map((m) => m[1].toLowerCase()))),
+];
 
 @Injectable()
 export class ProductsService {
@@ -73,10 +85,19 @@ export class ProductsService {
       track_total_hits: false,
       _source: { excludes: ['categoryRank'] },
       query,
+      highlight: q
+        ? { pre_tags: ['<em>'], post_tags: ['</em>'], fields: { name: { number_of_fragments: 0 }, description: { number_of_fragments: 0 } } }
+        : undefined,
       sort: sortField ? [{ [sortField]: 'asc' }] : ['_score', { id: 'asc' }],
     });
     // Relevance is only meaningful for text searches; other pages are sorted by a field.
-    return res.hits.hits.map((h) => (q ? { ...(h._source as Product), score: h._score ?? undefined } : (h._source as Product)));
+    if (!q) return res.hits.hits.map((h) => h._source as Product);
+    return res.hits.hits.map((h, i) => ({
+      ...(h._source as Product),
+      score: h._score ?? undefined,
+      rank: start + i + 1,
+      matched: { name: highlighted(h.highlight?.name), description: highlighted(h.highlight?.description) },
+    }));
   }
 
   private totalPages(total: number, limit: number, q?: string): number {
@@ -85,11 +106,12 @@ export class ProductsService {
   }
 
   async findPage(page: number, limit: number, q?: string, category?: string): Promise<ProductPage> {
+    const startedAt = performance.now();
     const [total, items] = await Promise.all([
       this.count(q, category),
       this.findHits(page, limit, q, category),
     ]);
-    return { items, page, pageSize: limit, total, totalPages: this.totalPages(total, limit, q) };
+    return { items, page, pageSize: limit, total, totalPages: this.totalPages(total, limit, q), tookMs: Math.round(performance.now() - startedAt) };
   }
 
   async findOne(id: number): Promise<Product | null> {
