@@ -1,7 +1,7 @@
 "use client";
 
 import { useDebouncedCallback } from "@tanstack/react-pacer";
-import { Search } from "lucide-react";
+import { Check, Search } from "lucide-react";
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -33,6 +33,14 @@ function pageWindow(current: number, total: number): (number | "gap")[] {
  });
  return result;
 }
+
+const SCORE_KEY = [
+ { label: "Title match", note: "counts 3×" },
+ { label: "Description match", note: "counts 1×" },
+ { label: "Uncommon words", note: "score higher (“cookbook” beats “edition”)" },
+ { label: "More of your words matched", note: "scores higher" },
+ { label: "Shorter text", note: "scores higher (title beats description)" },
+];
 
 export default function Home() {
  // useSearchParams needs a Suspense boundary so the rest of the page can prerender.
@@ -115,6 +123,20 @@ function ProductBrowser() {
 
  return (
   <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-10 sm:px-6">
+   <aside className="rounded-xl border-2 border-foreground/25 bg-transparent p-5">
+    <h2 className="mb-4 text-center text-3xl font-bold text-foreground">How results are scored</h2>
+    <ul className="grid gap-x-6 gap-y-3 text-lg italic leading-snug text-foreground/85 sm:grid-cols-2 lg:grid-cols-3">
+     {SCORE_KEY.map(({ label, note }) => (
+      <li key={label} className="flex items-start gap-3">
+       <Check className="mt-1 size-5 shrink-0 text-foreground" />
+       <span>
+        <b className="font-semibold text-foreground">{label}</b> {note}
+       </span>
+      </li>
+     ))}
+    </ul>
+   </aside>
+
    <header className="flex flex-col items-center gap-6 text-center">
     <div className="space-y-2">
      <h1 className="flex items-center justify-center gap-2 text-4xl font-bold tracking-tight sm:text-5xl">
@@ -157,7 +179,7 @@ function ProductBrowser() {
    </div>
 
    <p className="text-center text-base text-muted-foreground">
-    {error ?? (total === null ? "Loading products..." : `${total.toLocaleString()} product${total === 1 ? "" : "s"} found`)}
+    {error ?? (total === null ? "Loading products..." : `${total.toLocaleString()} product${total === 1 ? "" : "s"} found${result?.tookMs !== undefined ? ` in ${result.tookMs} ms` : ""}${q && total > 0 ? " · sorted by relevance, highest first" : ""}`)}
    </p>
 
    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">

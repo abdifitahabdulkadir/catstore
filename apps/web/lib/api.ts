@@ -7,6 +7,7 @@ export type ProductPage = {
   pageSize: number;
   total: number;
   totalPages: number;
+  tookMs?: number;
 };
 
 export async function getProducts(
