@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { RatingStars } from "@/components/rating-stars";
-import type { Product } from "@/lib/products";
+import { PLACEHOLDER_IMAGE, type Product } from "@/lib/products";
 
 export function ProductCard({ product }: { product: Product }) {
   return (
@@ -18,7 +18,7 @@ export function ProductCard({ product }: { product: Product }) {
       <Card className="overflow-hidden pt-0 transition-shadow hover:shadow-md">
         <div className="relative aspect-square w-full bg-muted">
           <Image
-            src={product.image}
+            src={product.image ?? PLACEHOLDER_IMAGE}
             alt={product.name}
             fill
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 20vw"

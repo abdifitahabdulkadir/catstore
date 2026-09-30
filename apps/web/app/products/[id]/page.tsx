@@ -5,11 +5,8 @@ import { ArrowLeft } from "lucide-react";
 
 import { RatingStars } from "@/components/rating-stars";
 import { buttonVariants } from "@/components/ui/button";
-import { getCategoryName, getProductById, PRODUCTS } from "@/lib/products";
-
-export function generateStaticParams() {
-  return PRODUCTS.map((product) => ({ id: String(product.id) }));
-}
+import { fetchProduct } from "@/lib/api";
+import { getCategoryName, PLACEHOLDER_IMAGE } from "@/lib/products";
 
 export default async function ProductPage({
   params,
@@ -17,7 +14,7 @@ export default async function ProductPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const product = getProductById(Number(id));
+  const product = Number.isInteger(Number(id)) ? await fetchProduct(Number(id)) : null;
 
   if (!product) {
     notFound();
@@ -33,7 +30,7 @@ export default async function ProductPage({
       <div className="grid gap-8 sm:grid-cols-2">
         <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-muted ring-1 ring-foreground/10">
           <Image
-            src={product.image}
+            src={product.image ?? PLACEHOLDER_IMAGE}
             alt={product.name}
             fill
             sizes="(max-width: 640px) 100vw, 50vw"

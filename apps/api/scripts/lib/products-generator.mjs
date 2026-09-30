@@ -1,26 +1,11 @@
-// Generates a large, deterministic set of unique products into
-// apps/api/src/data/products.json (gitignored — regenerate with `pnpm generate:products`).
+// Deterministic, unique synthetic product generator. Nothing is stored: products are
+// yielded one at a time so callers (the Elasticsearch seeder) can stream them.
 //
 // Uniqueness is not achieved by appending an incrementing number to titles/descriptions.
-// Instead, each product's text is assembled from several word banks, and the specific
-// combination picked for product `i` within a block comes from a multiplicative bijection
-// (i * M) mod N over the full combination space N (N is far larger than the number of
-// products drawn from it). Because the mapping is injective, every index in range produces
-// a distinct combination — collisions are impossible by construction, not by luck.
-
-import { createWriteStream, mkdirSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const OUT_DIR = join(__dirname, "..", "src", "data");
-// NDJSON (one JSON object per line), not a single JSON array: at 5M+ rows the file
-// is well over a gigabyte, past the size a single JSON.parse can ever handle in Node
-// (V8 caps string length around ~536M characters). NDJSON is read back in bounded
-// chunks instead of as one giant string — see src/data/products.ts.
-const OUT_FILE = join(OUT_DIR, "products.ndjson");
-
-const TOTAL_PRODUCTS = Number(process.argv[2] ?? 5_000_000);
+// Each product's text is assembled from several word banks, and the specific combination
+// picked for product `i` comes from a multiplicative bijection (i * M) mod N over the full
+// combination space N (far larger than the number of products drawn from it). The mapping
+// is injective, so collisions are impossible by construction.
 
 const CATEGORIES = [
   { slug: "electronics", name: "Electronics" },
@@ -259,69 +244,39 @@ const NAME_SPACE = NAME_SIZES.reduce((a, b) => a * b, 1);
 const DESC_SIZES = [ADJECTIVES.length, FEATURES.length, MATERIALS.length, BENEFITS.length, USE_CASES.length];
 const DESC_SPACE = DESC_SIZES.reduce((a, b) => a * b, 1);
 
-if (TOTAL_PRODUCTS >= DESC_SPACE) {
-  throw new Error(`TOTAL_PRODUCTS (${TOTAL_PRODUCTS}) must stay below the description combination space (${DESC_SPACE}) to guarantee uniqueness.`);
-}
 
-const perCategory = Math.floor(TOTAL_PRODUCTS / CATEGORIES.length);
+export const TOTAL_DEFAULT = 5_000_000;
 
-for (const category of CATEGORIES) {
-  const nouns = PRODUCT_NOUNS[category.slug];
-  const perNoun = Math.floor(perCategory / nouns.length);
-  if (perNoun >= NAME_SPACE) {
-    throw new Error(`perNoun (${perNoun}) for ${category.slug} exceeds the name combination space (${NAME_SPACE}).`);
+export function* generateProducts(total = TOTAL_DEFAULT) {
+  if (total >= DESC_SPACE) {
+    throw new Error(`total (${total}) must stay below the description combination space (${DESC_SPACE}) to guarantee uniqueness.`);
   }
-}
 
-// Single global bijection for descriptions, keyed by the 0-indexed global product id,
-// so descriptions are unique across the *entire* dataset, not just within a block.
-const globalSeedRng = mulberry32(hashString("catstore-products-v1"));
-const descM = coprimeMultiplier(DESC_SPACE, globalSeedRng);
+  const perCategory = Math.floor(total / CATEGORIES.length);
+  for (const category of CATEGORIES) {
+    const perNoun = Math.floor(perCategory / PRODUCT_NOUNS[category.slug].length);
+    if (perNoun >= NAME_SPACE) {
+      throw new Error(`perNoun (${perNoun}) for ${category.slug} exceeds the name combination space (${NAME_SPACE}).`);
+    }
+  }
 
-mkdirSync(OUT_DIR, { recursive: true });
-// A small highWaterMark plus explicit drain-waiting keeps writes flowing in modest,
-// backpressure-respecting increments instead of letting ~5M records (multiple GB)
-// queue up in memory before a single giant flush — the latter is what caused an
-// ERR_SYSTEM_ERROR writev failure (and a corrupted, oversized output file) on this
-// volume when the generation loop (fast, CPU-bound) outran the disk (slow, I/O-bound).
-const stream = createWriteStream(OUT_FILE, { encoding: "utf-8", highWaterMark: 1 * 1024 * 1024 });
+  // Single global bijection for descriptions, keyed by the 0-indexed global product id.
+  const globalSeedRng = mulberry32(hashString("catstore-products-v1"));
+  const descM = coprimeMultiplier(DESC_SPACE, globalSeedRng);
 
-function writeAsync(chunk) {
-  return new Promise((resolve, reject) => {
-    stream.once("error", reject);
-    const ok = stream.write(chunk, (err) => {
-      stream.removeListener("error", reject);
-      if (err) reject(err);
-    });
-    if (ok) resolve();
-    else stream.once("drain", resolve);
-  });
-}
+  const priceRng = mulberry32(hashString("catstore-price-v1"));
+  const ratingRng = mulberry32(hashString("catstore-rating-v1"));
+  const introRng = mulberry32(hashString("catstore-intro-v1"));
+  const closingRng = mulberry32(hashString("catstore-closing-v1"));
 
-let written = 0;
-let globalIndex = 0; // 0-indexed, drives the description bijection
-let id = 0;
+  let globalIndex = 0;
+  let id = 0;
 
-const priceRng = mulberry32(hashString("catstore-price-v1"));
-const ratingRng = mulberry32(hashString("catstore-rating-v1"));
-const introRng = mulberry32(hashString("catstore-intro-v1"));
-const closingRng = mulberry32(hashString("catstore-closing-v1"));
-
-const BATCH_SIZE = 2000;
-let batch = [];
-
-async function flushBatch() {
-  if (batch.length === 0) return;
-  await writeAsync(batch.join("\n") + "\n");
-  written += batch.length;
-  batch = [];
-}
-
-async function main() {
   for (const category of CATEGORIES) {
     const nouns = PRODUCT_NOUNS[category.slug];
     const perNoun = Math.floor(perCategory / nouns.length);
     const categoryTagPool = CATEGORY_TAGS[category.slug];
+    let categoryRank = 0; // 1-based position within the category, for exact deep paging
 
     for (const noun of nouns) {
       const blockKey = `${category.slug}::${noun}`;
@@ -331,6 +286,7 @@ async function main() {
 
       for (let i = 0; i < perNoun; i++) {
         id += 1;
+        categoryRank += 1;
 
         const namePermIdx = (i * nameM) % NAME_SPACE;
         const [aIdx, mIdx, cIdx, vIdx] = decompose(namePermIdx, NAME_SIZES);
@@ -352,34 +308,11 @@ async function main() {
         ];
 
         const price = Math.round((10 + priceRng() * 490) * 100) / 100;
-        const rating = Math.round((30 + ratingRng() * 20)) / 10;
+        const rating = Math.round(30 + ratingRng() * 20) / 10;
 
-        const record = {
-          id,
-          name,
-          description,
-          category: category.slug,
-          tags,
-          price,
-          rating,
-          image: null,
-        };
-
-        batch.push(JSON.stringify(record));
-        if (batch.length >= BATCH_SIZE) await flushBatch();
+        yield { id, categoryRank, name, description, category: category.slug, tags, price, rating, image: null };
         globalIndex += 1;
       }
     }
   }
-
-  await flushBatch();
-  await new Promise((resolve, reject) => {
-    stream.end((err) => (err ? reject(err) : resolve()));
-  });
-  console.log(`Wrote ${written} products to ${OUT_FILE}`);
 }
-
-main().catch((err) => {
-  console.error(err);
-  process.exitCode = 1;
-});

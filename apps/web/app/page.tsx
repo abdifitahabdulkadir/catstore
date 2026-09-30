@@ -1,53 +1,133 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Image from "next/image";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
-import { useDebouncedValue } from "@tanstack/react-pacer";
+import { useDebouncedCallback } from "@tanstack/react-pacer";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Pagination,
   PaginationContent,
+  PaginationEllipsis,
   PaginationItem,
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { ProductCard } from "@/components/product-card";
-import { CATEGORIES, PAGE_SIZE, PRODUCTS } from "@/lib/products";
+import { streamProducts } from "@/lib/api";
+import { CATEGORIES, MAX_SEARCH_LENGTH, type Product } from "@/lib/products";
+
+// With up to 200,000 pages, show first, last and a window around the current page.
+function pageWindow(current: number, total: number): (number | "gap")[] {
+  const pages = new Set([1, total, current - 1, current, current + 1]);
+  const sorted = [...pages].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b);
+  const result: (number | "gap")[] = [];
+  sorted.forEach((p, i) => {
+    if (i > 0 && p - sorted[i - 1] > 1) result.push("gap");
+    result.push(p);
+  });
+  return result;
+}
 
 export default function Home() {
-  const [search, setSearch] = useState("");
-  const [debouncedSearch] = useDebouncedValue(search, { wait: 500 });
-  const [activeCategory, setActiveCategory] = useState<string>("all");
-  const [page, setPage] = useState(1);
+  // useSearchParams needs a Suspense boundary so the rest of the page can prerender.
+  return (
+    <Suspense>
+      <ProductBrowser />
+    </Suspense>
+  );
+}
 
-  const filteredProducts = useMemo(() => {
-    const query = debouncedSearch.trim().toLowerCase();
-    return PRODUCTS.filter((product) => {
-      const matchesCategory = activeCategory === "all" || product.category === activeCategory;
-      const matchesQuery = query.length === 0 || product.name.toLowerCase().includes(query);
-      return matchesCategory && matchesQuery;
-    });
-  }, [debouncedSearch, activeCategory]);
+// page, category and search text live in the URL (?page=3&category=books&q=coffee), so
+// they survive a refresh and can be shared.
+function ProductBrowser() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
-  const currentPage = Math.min(page, totalPages);
-  const pageProducts = filteredProducts.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE
+  const q = (searchParams.get("q") ?? "").slice(0, MAX_SEARCH_LENGTH);
+  const categoryParam = searchParams.get("category");
+  const activeCategory = CATEGORIES.some((c) => c.slug === categoryParam) ? categoryParam! : "all";
+  const page = Math.max(1, Number.parseInt(searchParams.get("page") ?? "", 10) || 1);
+
+  const [search, setSearch] = useState(q);
+  const [syncedQ, setSyncedQ] = useState(q);
+  // Back/forward navigation changes the URL's q; reflect it in the input, but not when
+  // the change came from our own debounced update (the user may have typed further since).
+  if (q !== syncedQ) {
+    setSyncedQ(q);
+    if (q !== search.trim()) setSearch(q);
+  }
+
+  function updateUrl(changes: Record<string, string | undefined>, replace = false) {
+    const next = new URLSearchParams(window.location.search) // read live: the debounced caller may hold stale props;
+    for (const [key, value] of Object.entries(changes)) {
+      if (value) next.set(key, value);
+      else next.delete(key);
+    }
+    const qs = next.toString();
+    const href = qs ? `${pathname}?${qs}` : pathname;
+    if (replace) router.replace(href, { scroll: false });
+    else router.push(href, { scroll: false });
+  }
+
+  const commitSearch = useDebouncedCallback(
+    (value: string) => updateUrl({ q: value.trim() || undefined, page: undefined }, true),
+    { wait: 500 }
   );
 
+  const [products, setProducts] = useState<Product[]>([]);
+  const [total, setTotal] = useState<number | null>(null);
+  const [totalPages, setTotalPages] = useState(1);
+  const [error, setError] = useState<string | null>(null);
+
+  // Products are appended as each line of the NDJSON stream arrives.
+  useEffect(() => {
+    const controller = new AbortController();
+    streamProducts(
+      {
+        page,
+        q: q || undefined,
+        category: activeCategory === "all" ? undefined : activeCategory,
+      },
+      {
+        // The previous page stays visible until the new page's first line arrives.
+        onMeta: (meta) => {
+          setProducts([]);
+          setError(null);
+          setTotal(meta.total);
+          setTotalPages(Math.max(1, meta.totalPages));
+        },
+        onProduct: (product) => setProducts((current) => [...current, product]),
+      },
+      controller.signal
+    )
+      .catch((err: unknown) => {
+        if (controller.signal.aborted) return;
+        setProducts([]);
+        setError(err instanceof Error ? err.message : "Something went wrong");
+      });
+
+    return () => controller.abort();
+  }, [page, q, activeCategory]);
+
+  const currentPage = total === null ? page : Math.min(page, totalPages);
+
   function handleCategoryChange(slug: string) {
-    setActiveCategory(slug);
-    setPage(1);
+    updateUrl({ category: slug === "all" ? undefined : slug, page: undefined });
   }
 
   function handleSearchChange(value: string) {
     setSearch(value);
-    setPage(1);
+    commitSearch(value);
+  }
+
+  function goToPage(target: number) {
+    updateUrl({ page: target > 1 ? String(target) : undefined });
   }
 
   return (
@@ -64,6 +144,7 @@ export default function Home() {
           <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
+            maxLength={MAX_SEARCH_LENGTH}
             onChange={(event) => handleSearchChange(event.target.value)}
             placeholder="Search products..."
             className="h-14 pl-11 text-lg"
@@ -90,11 +171,11 @@ export default function Home() {
       </div>
 
       <p className="text-center text-base text-muted-foreground">
-        {filteredProducts.length} product{filteredProducts.length === 1 ? "" : "s"} found
+        {error ?? (total === null ? "Loading products..." : `${total.toLocaleString()} product${total === 1 ? "" : "s"} found`)}
       </p>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-        {pageProducts.map((product) => (
+        {products.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}
       </div>
@@ -107,30 +188,38 @@ export default function Home() {
                 href="#"
                 onClick={(event) => {
                   event.preventDefault();
-                  setPage(Math.max(1, currentPage - 1));
+                  goToPage(Math.max(1, currentPage - 1));
                 }}
               />
             </PaginationItem>
-            {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
-              <PaginationItem key={pageNumber}>
-                <PaginationLink
-                  href="#"
-                  isActive={pageNumber === currentPage}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    setPage(pageNumber);
-                  }}
-                >
-                  {pageNumber}
-                </PaginationLink>
-              </PaginationItem>
-            ))}
+            {pageWindow(currentPage, totalPages).map((entry, index) =>
+              entry === "gap" ? (
+                <PaginationItem key={`gap-${index}`}>
+                  <PaginationEllipsis />
+                </PaginationItem>
+              ) : (
+                <PaginationItem key={entry}>
+                  <PaginationLink
+                    href="#"
+                    isActive={entry === currentPage}
+                    size="default"
+                    className="min-w-8 px-2.5"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      goToPage(entry);
+                    }}
+                  >
+                    {entry.toLocaleString()}
+                  </PaginationLink>
+                </PaginationItem>
+              )
+            )}
             <PaginationItem>
               <PaginationNext
                 href="#"
                 onClick={(event) => {
                   event.preventDefault();
-                  setPage(Math.min(totalPages, currentPage + 1));
+                  goToPage(Math.min(totalPages, currentPage + 1));
                 }}
               />
             </PaginationItem>
