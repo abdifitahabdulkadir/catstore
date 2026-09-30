@@ -27,8 +27,6 @@ export const CATEGORIES: Category[] = [
   { slug: "grocery", name: "Grocery" },
 ];
 
-export const PAGE_SIZE = 25;
-
 export const MAX_SEARCH_LENGTH = 100;
 
 export const PLACEHOLDER_IMAGE = "/logo.png";
