@@ -12,6 +12,9 @@ export type Product = {
   price: number;
   rating: number;
   image: string | null;
+  score?: number;
+  rank?: number;
+  matched?: { name: string[]; description: string[] };
 };
 
 export const CATEGORIES: Category[] = [
