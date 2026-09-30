@@ -1,0 +1,29 @@
+services:
+ postgress:
+  image: postgres:17-alpine
+  container_name: catstore
+  environment:
+   POSTGRES_USER: root
+   POSTGRES_PASSWORD: admin
+   POSTGRES_DB: catstore_db
+  ports:
+   - 5432:5432
+  volumes:
+   - postgres_data:/var/lib/postgresql
+
+ elasticsearch:
+  image: docker.elastic.co/elasticsearch/elasticsearch:9.1.0
+  container_name: catstore_elastic_search
+  environment:
+   discovery.type: single-node
+   ELASTIC_PASSWORD: admin
+   xpack.security.http.ssl.enabled: "false"
+   ES_JAVA_OPTS: -Xms512m -Xmx512m
+  ports:
+   - 9200:9200
+  volumes:
+   - elasticsearch_data:/usr/share/elasticsearch/data
+
+volumes:
+ postgres_data:
+ elasticsearch_data:
