@@ -35,7 +35,7 @@ export async function streamProducts(
 
   const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
   let buffer = "";
-  for (;;) {
+  for (; ;) {
     const { done, value } = await reader.read();
     if (done) break;
     buffer += value;
