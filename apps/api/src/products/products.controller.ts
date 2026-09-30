@@ -1,31 +1,16 @@
-import {
-  Controller,
-  DefaultValuePipe,
-  Get,
-  NotFoundException,
-  Param,
-  ParseIntPipe,
-  Query,
-} from '@nestjs/common';
-import { config } from '../config.js';
+import { Controller, Get, NotFoundException, Param, ParseIntPipe, Query } from '@nestjs/common';
+import { parseListQuery } from './products.query.js';
 import { ProductsService } from './products.service.js';
 
 @Controller('products')
 export class ProductsController {
   constructor(private readonly products: ProductsService) { }
 
-  // GET /products?page=1&q=wireless&category=electronics
+  // GET /products?page=1&limit=25&q=wireless&category=electronics (all optional)
   @Get()
-  findAll(
-    @Query('page', new DefaultValuePipe(config.defaultPage), ParseIntPipe) page: number,
-    @Query('q') q?: string,
-    @Query('category') category?: string,
-  ) {
-    return this.products.findPage(
-      Math.max(config.defaultPage, page),
-      q?.trim().slice(0, config.maxSearchLength) || undefined,
-      category || undefined,
-    );
+  findAll(@Query() query: Record<string, unknown>) {
+    const { page, limit, q, category } = parseListQuery(query);
+    return this.products.findPage(page, limit, q, category);
   }
 
   @Get(':id')
