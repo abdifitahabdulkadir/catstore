@@ -8,6 +8,7 @@ import { ProductsService } from './products/products.service.js';
 @Module({
   imports: [
     // Global rate limit: 50 requests per second per client IP.
+    // 50 requests in every 1 second  for given client.
     ThrottlerModule.forRoot([{ ttl: 1000, limit: 50 }]),
     ElasticsearchModule,
   ],

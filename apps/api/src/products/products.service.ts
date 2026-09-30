@@ -1,5 +1,5 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { Client } from '@elastic/elasticsearch';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { ELASTIC_CLIENT } from '../elasticsearch/elasticsearch.module.js';
 
 export const PAGE_SIZE = 25;
@@ -28,7 +28,7 @@ export type ProductPage = {
 
 @Injectable()
 export class ProductsService {
-  constructor(@Inject(ELASTIC_CLIENT) private readonly es: Client) {}
+  constructor(@Inject(ELASTIC_CLIENT) private readonly es: Client) { }
 
   private query(q?: string, category?: string) {
     const filter: object[] = category ? [{ term: { category } }] : [];

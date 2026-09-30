@@ -9,13 +9,13 @@ import {
   Res,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import { PAGE_SIZE, ProductsService } from './products.service.js';
 
 const MAX_SEARCH_LENGTH = 100;
-import { PAGE_SIZE, ProductsService } from './products.service.js';
 
 @Controller('products')
 export class ProductsController {
-  constructor(private readonly products: ProductsService) {}
+  constructor(private readonly products: ProductsService) { }
 
   // GET /products?page=1&q=wireless&category=electronics — 25 products per page.
   @Get()
