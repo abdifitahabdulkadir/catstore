@@ -24,13 +24,14 @@ await client.indices.create({
     // Faster bulk load; restored below.
     number_of_replicas: 0,
     refresh_interval: "-1",
+
   },
   mappings: {
     properties: {
       id: { type: "integer" },
       categoryRank: { type: "integer" },
-      name: { type: "text" },
-      description: { type: "text" },
+      name: { type: "text", analyzer: "english" },
+      description: { type: "text", analyzer: "english" },
       category: { type: "keyword" },
       tags: { type: "keyword" },
       price: { type: "float" },
