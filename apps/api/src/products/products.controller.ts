@@ -8,14 +8,14 @@ export class ProductsController {
 
   // GET /products?page=1&limit=25&q=wireless&category=electronics (all optional)
   @Get()
-  findAll(@Query() query: Record<string, unknown>) {
+  getProducts(@Query() query: Record<string, unknown>) {
     const { page, limit, q, category } = parseListQuery(query);
-    return this.products.findPage(page, limit, q, category);
+    return this.products.getProducts(page, limit, q, category);
   }
 
   @Get(':id')
-  async findOne(@Param('id', ParseIntPipe) id: number) {
-    const product = await this.products.findOne(id);
+  async getProductDetail(@Param('id', ParseIntPipe) id: number) {
+    const product = await this.products.getProductDetail(id);
     if (!product) throw new NotFoundException('Product not found');
     return product;
   }
